@@ -1,5 +1,7 @@
-#include "stdio.h"
+#include "App.h"
 
 int main() {
-  printf("Hello Nixers!\n");
+  App app("Vulkan Project", 1920, 1080);
+  app.run();
+  return 0;
 }

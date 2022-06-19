@@ -33,9 +33,12 @@
     # A Nixpkgs overlay.
     overlay = final: prev: {
       vulkan-project = with final; stdenv.mkDerivation rec {
-        name = "vulkan-project-${version}";
+        name = "vulkan-project";
         src = ./.;
         nativeBuildInputs = [ autoreconfHook ];
+        buildInputs = [
+          glfw
+        ];
       };
     };
 
