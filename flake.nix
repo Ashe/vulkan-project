@@ -38,6 +38,9 @@
         nativeBuildInputs = [ autoreconfHook ];
         buildInputs = [
           glfw
+          glm
+          vulkan-headers
+          vulkan-loader
         ];
       };
     };

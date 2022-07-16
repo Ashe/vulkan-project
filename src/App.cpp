@@ -1,9 +1,5 @@
 #include "App.h"
 
-#include <GLFW/glfw3.h>
-
-#include "stdio.h"
-
 App::App(const char* title, int width, int height) :
     initialised(glfwInit()), 
     window(initialised ? 
@@ -16,12 +12,20 @@ App::App(const char* title, int width, int height) :
     return;
   }
 
+  // Signal that application is ready
+  printf("Initialising %s..\n", title);
+
   // Give GLFW a reference to this application
   glfwSetWindowUserPointer(window, this);
 
   // Setup callbacks
   glfwSetErrorCallback(&App::handle_error_callback);
   glfwSetKeyCallback(window, &App::handle_key_callback);
+
+  // Get extensions
+  uint32_t extensionCount = 0;
+  vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+  printf("%d extensions supported.\n");
 
   // Signal that application is ready
   printf("%s initialised successfully.\n", title);

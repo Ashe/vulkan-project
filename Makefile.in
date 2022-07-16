@@ -2,6 +2,8 @@ prefix = @prefix@
 exec_prefix = @exec_prefix@
 bindir = @bindir@
 
+LIBS := -lglfw -lvulkan
+
 # Thanks to Job Vranish (https://spin.atomicobject.com/2016/08/26/makefile-c-projects/)
 TARGET_EXEC := vulkan-project
 
@@ -41,7 +43,7 @@ $(BUILD_DIR)/%.cpp.o: %.cpp
 
 # Build the executable.
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
-	$(CXX) $(OBJS) -o $@ $(LDFLAGS) -L. -lglfw
+	$(CXX) $(OBJS) -o $@ $(LDFLAGS) -L. $(LIBS)
 
 # Install built executable
 install:
