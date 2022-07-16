@@ -8,7 +8,8 @@
 #include <glm/vec4.hpp>
 #include <glm/mat4x4.hpp>
 
-#include "stdio.h"
+#include <stdexcept>
+#include <stdio.h>
 
 // Main class for application loop
 class App {
@@ -16,7 +17,7 @@ class App {
 public:
 
   // Constructors
-  App(const char* title, int width, int height);
+  App(const char* title, unsigned int width, unsigned int height);
   ~App();
 
   // Run the application
@@ -25,11 +26,15 @@ public:
 private:
 
   // Initialisation variables
-  const bool initialised = false;
-  GLFWwindow* const window = nullptr;
+  GLFWwindow* window = nullptr;
+  VkInstance vulkanInstance;
 
   // Callbacks
   void key_callback(int key, int scancode, int action, int mods);
+
+  // Initialisation functions
+  static GLFWwindow* initialiseGLFW(App* app, const char* title, unsigned int width, unsigned int height);
+  static bool initialiseVulkanInstance(VkInstance& vulkanInstance, const char* title);
 
   // Static helper functions
   static void handle_error_callback(int error, const char* description);

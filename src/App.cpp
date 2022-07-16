@@ -1,55 +1,47 @@
 #include "App.h"
 
-App::App(const char* title, int width, int height) :
-    initialised(glfwInit()), 
-    window(initialised ? 
-        glfwCreateWindow(width, height, title, nullptr, nullptr) :
-        nullptr) {
-
-  // Stop constructing if glfw failed to initialise
-  if (!initialised) {
-    printf("Failed to initialise %s.\n", title);
-    return;
-  }
+App::App(const char* title, unsigned int width, unsigned int height) {
 
   // Signal that application is ready
   printf("Initialising %s..\n", title);
 
-  // Give GLFW a reference to this application
-  glfwSetWindowUserPointer(window, this);
+  // Initialise GLFW and create window
+  window = App::initialiseGLFW(this, title, width, height);
+  if (!window) {
+    return;
+  }
 
-  // Setup callbacks
-  glfwSetErrorCallback(&App::handle_error_callback);
-  glfwSetKeyCallback(window, &App::handle_key_callback);
-
-  // Get extensions
-  uint32_t extensionCount = 0;
-  vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-  printf("%d extensions supported.\n");
+  // Initialise Vulkan
+  const bool vulkanInitResult = App::initialiseVulkanInstance(vulkanInstance, title);
+  if (!vulkanInitResult) {
+    return;
+  }
 
   // Signal that application is ready
-  printf("%s initialised successfully.\n", title);
+  printf("Initialisation successful.\n");
 }
 
 App::~App() {
 
-  // Cleanup window
+  // Signal that the application is about to terminate
+  printf("Terminating application..\n");
+
+  // Destroy Vulkan instance
+  vkDestroyInstance(vulkanInstance, nullptr);
+
+  // Destroy window
   if (window != nullptr) {
     glfwDestroyWindow(window);
   }
 
-  // Only terminate glfw if it was initialised
-  if (initialised) {
-    glfwTerminate();
-  }
+  // Terminate glfw
+  glfwTerminate();
+
+  // Signal that we reached the end of termination
+  printf("Terminating successful. Goodbye.\n");
 }
 
 void App::run() {
-
-  // Only run when initialised
-  if (!initialised) {
-    return;
-  }
   
   // Prepare to loop application
   double previous_time = glfwGetTime();
@@ -73,7 +65,77 @@ void App::run() {
 }
 
 void App::key_callback(int key, int scancode, int action, int mods) {
-  printf("Key pressed!\n");
+  if (action == GLFW_PRESS) {
+    printf("Key '%d' pressed!\n", key);
+  }
+}
+
+//////////////////////////////
+// Initialisation functions //
+//////////////////////////////
+
+GLFWwindow* App::initialiseGLFW(App* app, const char* title, unsigned int width, unsigned int height) {
+
+  // Initialise GLFW
+  const int initResult = glfwInit();
+  if (initResult != GLFW_TRUE) {
+    printf("Failed to initialise GLFW.\n");
+    return nullptr;
+  }
+
+  // Create a window with GLFW
+  GLFWwindow* window = glfwCreateWindow(width, height, title, nullptr, nullptr);
+  if (!window) {
+    printf("Failed to create window.\n");
+    return nullptr;
+  }
+
+  // Give GLFW a reference to this application
+  glfwSetWindowUserPointer(window, app);
+
+  // Setup callbacks
+  glfwSetErrorCallback(&App::handle_error_callback);
+  glfwSetKeyCallback(window, &App::handle_key_callback);
+
+  // Return the newly created window, if any
+  return window;
+}
+
+bool App::initialiseVulkanInstance(VkInstance& vulkanInstance, const char* title) {
+
+  // Define application information
+  VkApplicationInfo appInfo{};
+  appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+  appInfo.pApplicationName = title;
+  appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+  appInfo.pEngineName = "No Engine";
+  appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+  appInfo.apiVersion = VK_API_VERSION_1_0;
+
+  // Specify instance creation information
+  uint32_t glfwExtensionCount;
+  const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+  VkInstanceCreateInfo createInfo{};
+  createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+  createInfo.pApplicationInfo = &appInfo;
+  createInfo.enabledExtensionCount = glfwExtensionCount;
+  createInfo.ppEnabledExtensionNames = glfwExtensions;
+  createInfo.enabledLayerCount = 0;
+
+  // Create the Vulkan instance
+  const VkResult result = vkCreateInstance(&createInfo, nullptr, &vulkanInstance);
+  if (result != VK_SUCCESS) {
+    printf("Failed to create VkInstance.\n");
+    return false;
+  }
+
+  // Get extensions
+  uint32_t extensionCount = 0;
+  vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+  printf("%d extensions supported.\n", extensionCount);
+
+  // Initialisation successful
+  return true;
 }
 
 /////////////////////////////
