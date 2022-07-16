@@ -19,6 +19,7 @@ App::App(const char* title, unsigned int width, unsigned int height) {
 
   // Signal that application is ready
   printf("Initialisation successful.\n");
+  isInitialised = true;
 }
 
 App::~App() {
@@ -39,9 +40,15 @@ App::~App() {
 
   // Signal that we reached the end of termination
   printf("Terminating successful. Goodbye.\n");
+  isInitialised = false;
 }
 
 void App::run() {
+
+  // Only run application if is fully initialised
+  if (!isInitialised) {
+    return;
+  }
   
   // Prepare to loop application
   double previous_time = glfwGetTime();
@@ -79,14 +86,14 @@ GLFWwindow* App::initialiseGLFW(App* app, const char* title, unsigned int width,
   // Initialise GLFW
   const int initResult = glfwInit();
   if (initResult != GLFW_TRUE) {
-    printf("Failed to initialise GLFW.\n");
+    printf("Error: Failed to initialise GLFW.\n");
     return nullptr;
   }
 
   // Create a window with GLFW
   GLFWwindow* window = glfwCreateWindow(width, height, title, nullptr, nullptr);
   if (!window) {
-    printf("Failed to create window.\n");
+    printf("Error: Failed to create window.\n");
     return nullptr;
   }
 
@@ -125,14 +132,52 @@ bool App::initialiseVulkanInstance(VkInstance& vulkanInstance, const char* title
   // Create the Vulkan instance
   const VkResult result = vkCreateInstance(&createInfo, nullptr, &vulkanInstance);
   if (result != VK_SUCCESS) {
-    printf("Failed to create VkInstance.\n");
+    printf("Error: Failed to create VkInstance.\n");
     return false;
   }
 
-  // Get extensions
+  // Get available extensions
   uint32_t extensionCount = 0;
   vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-  printf("%d extensions supported.\n", extensionCount);
+  std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+  vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, availableExtensions.data());
+
+  // Determine if there are any missing extensions
+  std::vector<VkExtensionProperties> missingExtensions;
+  std::vector<VkExtensionProperties> requiredExtensions(glfwExtensionCount);
+  vkEnumerateInstanceExtensionProperties(nullptr, &glfwExtensionCount, requiredExtensions.data());
+  for (const VkExtensionProperties& requiredExtension : requiredExtensions) {
+    bool found = false;
+    for (int i = 0; i < availableExtensions.size(); ++i) {
+      const int strCmp = strcmp(requiredExtension.extensionName, availableExtensions[i].extensionName);
+      const bool versionCmp = requiredExtension.specVersion <= availableExtensions[i].specVersion;
+      if (strCmp == 0 && versionCmp) {
+        found = true;
+      }
+    }
+    if (!found) {
+      missingExtensions.push_back(requiredExtension);
+    }
+  }
+
+  // If any extensions are missing
+  if (!missingExtensions.empty()) {
+
+    // List missing extensions
+    printf("Error: Missing vulkan extensions:\n");
+    for (const VkExtensionProperties& missingExtension : missingExtensions) {
+      printf("\t%s (v. %u)\n", missingExtension.extensionName, missingExtension.specVersion);
+    }
+
+    // List available extensions
+    printf("Available extensions:\n");
+    for (const VkExtensionProperties& availableExtension : availableExtensions) {
+      printf("\t%s (v. %u)\n", availableExtension.extensionName, availableExtension.specVersion);
+    }
+
+    // Fail initialisation
+    return false;
+  }
 
   // Initialisation successful
   return true;
