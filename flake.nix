@@ -35,13 +35,15 @@
       vulkan-project = with final; stdenv.mkDerivation rec {
         name = "vulkan-project";
         src = ./.;
-        nativeBuildInputs = [ autoreconfHook ];
+        nativeBuildInputs = [ 
+          autoreconfHook 
+          vulkan-validation-layers
+        ];
         buildInputs = [
           glfw
           glm
           vulkan-headers
           vulkan-loader
-          vulkan-validation-layers
         ];
       };
     };
