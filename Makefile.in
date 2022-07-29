@@ -2,7 +2,7 @@ prefix = @prefix@
 exec_prefix = @exec_prefix@
 bindir = @bindir@
 
-LIBS := -lglfw -lvulkan
+LIBS := -lglfw -lvulkan -lVkLayer_utils
 
 # Thanks to Job Vranish (https://spin.atomicobject.com/2016/08/26/makefile-c-projects/)
 TARGET_EXEC := vulkan-project

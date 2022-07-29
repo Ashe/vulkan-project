@@ -30,7 +30,7 @@ private:
   // Initialisation variables
   bool isInitialised = false;
   GLFWwindow* window = nullptr;
-  VkInstance vulkanInstance;
+  VkInstance vulkanInstance = VK_NULL_HANDLE;
 
   // Callbacks
   void key_callback(int key, int scancode, int action, int mods);

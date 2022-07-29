@@ -1,5 +1,16 @@
 #include "App.h"
 
+namespace {
+const std::vector<const char*> validationLayers = {
+    "VK_LAYER_KHRONOS_validation"
+};
+#ifdef NDEBUG
+const bool enableValidationLayers = false;
+#else
+const bool enableValidationLayers = true;
+#endif
+}
+
 App::App(const char* title, unsigned int width, unsigned int height) {
 
   // Signal that application is ready
@@ -28,10 +39,12 @@ App::~App() {
   printf("Terminating application..\n");
 
   // Destroy Vulkan instance
-  vkDestroyInstance(vulkanInstance, nullptr);
+  if (vulkanInstance) {
+    vkDestroyInstance(vulkanInstance, nullptr);
+  }
 
   // Destroy window
-  if (window != nullptr) {
+  if (window) {
     glfwDestroyWindow(window);
   }
 
@@ -39,7 +52,7 @@ App::~App() {
   glfwTerminate();
 
   // Signal that we reached the end of termination
-  printf("Terminating successful. Goodbye.\n");
+  printf("Termination successful. Goodbye.\n");
   isInitialised = false;
 }
 
@@ -49,7 +62,7 @@ void App::run() {
   if (!isInitialised) {
     return;
   }
-  
+
   // Prepare to loop application
   double previous_time = glfwGetTime();
 
@@ -110,31 +123,52 @@ GLFWwindow* App::initialiseGLFW(App* app, const char* title, unsigned int width,
 
 bool App::initialiseVulkanInstance(VkInstance& vulkanInstance, const char* title) {
 
-  // Define application information
-  VkApplicationInfo appInfo{};
-  appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-  appInfo.pApplicationName = title;
-  appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-  appInfo.pEngineName = "No Engine";
-  appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-  appInfo.apiVersion = VK_API_VERSION_1_0;
+  // If we want to enable validation layers
+  if (enableValidationLayers) {
+    uint32_t layerCount;
 
-  // Specify instance creation information
+    // Get available layers
+    vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+    std::vector<VkLayerProperties> availableLayers(layerCount);
+    vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+
+    // Determine if any layers are missing
+    std::vector<const char*> missingLayers;
+    for (const char* requiredLayer : validationLayers) {
+
+      bool layerFound = false;
+      for (const VkLayerProperties& layer : availableLayers) {
+        const int strCmp = strcmp(requiredLayer, layer.layerName);
+        if (strCmp == 0) {
+          layerFound = true;
+          break;
+        }
+      }
+
+      if (!layerFound) {
+        missingLayers.push_back(requiredLayer);
+      }
+    }
+
+    // If any layers are missing
+    if (!missingLayers.empty())
+    {
+      printf("Error: Missing Vulkan validation layers:\n");
+      for (const char* layer : missingLayers) {
+        printf("\t%s\n", layer);
+      }
+
+      printf("Available validation layers:\n");
+      for (const VkLayerProperties& layer : availableLayers) {
+        printf("\t%s (v. %u)\n", layer.layerName, layer.specVersion);
+      }
+      return false;
+    }
+  }
+
+  // Get extensions required for GLFW
   uint32_t glfwExtensionCount;
   const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-  VkInstanceCreateInfo createInfo{};
-  createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-  createInfo.pApplicationInfo = &appInfo;
-  createInfo.enabledExtensionCount = glfwExtensionCount;
-  createInfo.ppEnabledExtensionNames = glfwExtensions;
-  createInfo.enabledLayerCount = 0;
-
-  // Create the Vulkan instance
-  const VkResult result = vkCreateInstance(&createInfo, nullptr, &vulkanInstance);
-  if (result != VK_SUCCESS) {
-    printf("Error: Failed to create VkInstance.\n");
-    return false;
-  }
 
   // Get available extensions
   uint32_t extensionCount = 0;
@@ -148,11 +182,12 @@ bool App::initialiseVulkanInstance(VkInstance& vulkanInstance, const char* title
   vkEnumerateInstanceExtensionProperties(nullptr, &glfwExtensionCount, requiredExtensions.data());
   for (const VkExtensionProperties& requiredExtension : requiredExtensions) {
     bool found = false;
-    for (int i = 0; i < availableExtensions.size(); ++i) {
-      const int strCmp = strcmp(requiredExtension.extensionName, availableExtensions[i].extensionName);
-      const bool versionCmp = requiredExtension.specVersion <= availableExtensions[i].specVersion;
+    for (const VkExtensionProperties& extension : availableExtensions) {
+      const int strCmp = strcmp(requiredExtension.extensionName, extension.extensionName);
+      const bool versionCmp = requiredExtension.specVersion <= extension.specVersion;
       if (strCmp == 0 && versionCmp) {
         found = true;
+        break;
       }
     }
     if (!found) {
@@ -164,18 +199,50 @@ bool App::initialiseVulkanInstance(VkInstance& vulkanInstance, const char* title
   if (!missingExtensions.empty()) {
 
     // List missing extensions
-    printf("Error: Missing vulkan extensions:\n");
-    for (const VkExtensionProperties& missingExtension : missingExtensions) {
-      printf("\t%s (v. %u)\n", missingExtension.extensionName, missingExtension.specVersion);
+    printf("Error: Missing Vulkan extensions:\n");
+    for (const VkExtensionProperties& extension : missingExtensions) {
+      printf("\t%s (v. %u)\n", extension.extensionName, extension.specVersion);
     }
 
     // List available extensions
     printf("Available extensions:\n");
-    for (const VkExtensionProperties& availableExtension : availableExtensions) {
-      printf("\t%s (v. %u)\n", availableExtension.extensionName, availableExtension.specVersion);
+    for (const VkExtensionProperties& extension : availableExtensions) {
+      printf("\t%s (v. %u)\n", extension.extensionName, extension.specVersion);
     }
 
     // Fail initialisation
+    return false;
+  }
+
+  // Define application information
+  VkApplicationInfo appInfo{};
+  appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+  appInfo.pApplicationName = title;
+  appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+  appInfo.pEngineName = "No Engine";
+  appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+  appInfo.apiVersion = VK_API_VERSION_1_0;
+
+  // Specify instance creation information
+  VkInstanceCreateInfo createInfo{};
+  createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+  createInfo.pApplicationInfo = &appInfo;
+  createInfo.enabledExtensionCount = glfwExtensionCount;
+  createInfo.ppEnabledExtensionNames = glfwExtensions;
+  createInfo.enabledLayerCount = 0;
+
+  // If validation layers are enabled, use them
+  if (enableValidationLayers)
+  {
+    const uint32_t layerCount = static_cast<uint32_t>(validationLayers.size());
+    createInfo.enabledLayerCount = layerCount;
+    createInfo.ppEnabledLayerNames = validationLayers.data();
+  }
+
+  // Create the Vulkan instance
+  const VkResult result = vkCreateInstance(&createInfo, nullptr, &vulkanInstance);
+  if (result != VK_SUCCESS) {
+    printf("Error: Failed to create VkInstance.\n");
     return false;
   }
 
