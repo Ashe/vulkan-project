@@ -8,10 +8,18 @@
 #include <glm/vec4.hpp>
 #include <glm/mat4x4.hpp>
 
+#include <algorithm>
 #include <stdexcept>
 #include <stdio.h>
 #include <string.h>
 #include <vector>
+
+// Variables determined by Vulkan setup
+struct VulkanSettings {
+  VkInstance instance = VK_NULL_HANDLE;
+  VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+  VkDevice device = VK_NULL_HANDLE;
+};
 
 // Main class for application loop
 class App {
@@ -30,14 +38,14 @@ private:
   // Initialisation variables
   bool isInitialised = false;
   GLFWwindow* window = nullptr;
-  VkInstance vulkanInstance = VK_NULL_HANDLE;
+  VulkanSettings vulkan;
 
   // Callbacks
   void key_callback(int key, int scancode, int action, int mods);
 
   // Initialisation functions
   static GLFWwindow* initialiseGLFW(App* app, const char* title, unsigned int width, unsigned int height);
-  static bool initialiseVulkanInstance(VkInstance& vulkanInstance, const char* title);
+  static bool initialiseVulkanInstance(VulkanSettings& vulkan, const char* title);
 
   // Static helper functions
   static void handle_error_callback(int error, const char* description);

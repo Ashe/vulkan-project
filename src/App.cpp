@@ -23,7 +23,7 @@ App::App(const char* title, unsigned int width, unsigned int height) {
   }
 
   // Initialise Vulkan
-  const bool vulkanInitResult = App::initialiseVulkanInstance(vulkanInstance, title);
+  const bool vulkanInitResult = App::initialiseVulkanInstance(vulkan, title);
   if (!vulkanInitResult) {
     return;
   }
@@ -38,9 +38,14 @@ App::~App() {
   // Signal that the application is about to terminate
   printf("Terminating application..\n");
 
+  // Destroy vulkan logical device
+  if (vulkan.device) {
+    vkDestroyDevice(vulkan.device, nullptr);
+  }
+
   // Destroy Vulkan instance
-  if (vulkanInstance) {
-    vkDestroyInstance(vulkanInstance, nullptr);
+  if (vulkan.instance) {
+    vkDestroyInstance(vulkan.instance, nullptr);
   }
 
   // Destroy window
@@ -121,7 +126,7 @@ GLFWwindow* App::initialiseGLFW(App* app, const char* title, unsigned int width,
   return window;
 }
 
-bool App::initialiseVulkanInstance(VkInstance& vulkanInstance, const char* title) {
+bool App::initialiseVulkanInstance(VulkanSettings& vulkan, const char* title) {
 
   // If we want to enable validation layers
   if (enableValidationLayers) {
@@ -240,9 +245,54 @@ bool App::initialiseVulkanInstance(VkInstance& vulkanInstance, const char* title
   }
 
   // Create the Vulkan instance
-  const VkResult result = vkCreateInstance(&createInfo, nullptr, &vulkanInstance);
+  const VkResult result = vkCreateInstance(&createInfo, nullptr, &vulkan.instance);
   if (result != VK_SUCCESS) {
     printf("Error: Failed to create VkInstance.\n");
+    return false;
+  }
+
+  // Check how many physical devices are available
+  uint32_t deviceCount = 0;
+  vkEnumeratePhysicalDevices(vulkan.instance, &deviceCount, nullptr);
+  if (deviceCount == 0) {
+    printf("Error: No physical devices found.\n");
+    return false;
+  }
+
+  // Determine most suitable device
+  vulkan.physicalDevice = VK_NULL_HANDLE;
+  std::vector<VkPhysicalDevice> devices(deviceCount);
+  vkEnumeratePhysicalDevices(vulkan.instance, &deviceCount, devices.data());
+  uint suitableDeviceRating = 0;
+  for (const VkPhysicalDevice& device : devices) {
+
+    // Prepare to rate device
+    uint rating = 0;
+
+    // Get features and properties of device
+    VkPhysicalDeviceProperties deviceProperties;
+    vkGetPhysicalDeviceProperties(device, &deviceProperties);
+    VkPhysicalDeviceFeatures deviceFeatures;
+    vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+    // Discrete GPUs have a significant performance advantage
+    if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+      rating += 1000;
+    }
+
+    // Maximum possible size of textures affects graphics quality
+    rating += deviceProperties.limits.maxImageDimension2D;
+
+    // If this device is better than the current device
+    if (rating > suitableDeviceRating) {
+      vulkan.physicalDevice = device;
+      suitableDeviceRating = rating;
+    }
+  }
+
+  // Ensure we found a suitable device
+  if (vulkan.physicalDevice == VK_NULL_HANDLE) {
+    printf("Error: Failed to find suitable physical device.\n");
     return false;
   }
 
